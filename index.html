@@ -696,7 +696,11 @@ var CFG = {
   startDate: "1 Dec 2026",           // shown text, e.g. "23 Nov 2026"
   timing: "8:00 PM – 10:00 PM",      // batch timing
   offerTill: "DD Month 2026",        // shown text, e.g. "20 Nov 2026"
-  offerEnd: "2026-11-20T23:59:00+05:30", // exact offer end for the countdown (IST)
+  offerEnd: "2026-11-20T23:59:00+05:30", // used only if autoRolling is false
+  autoRolling: true,                  // true = offer end date moves forward automatically
+  cycleDays: 3,                       // offer window length in days (deadline jumps by this every cycle)
+  cycleStart: "2026-11-09T00:00:00+05:30", // first day of the first cycle (IST)
+  hardStop: "2026-11-30T23:59:00+05:30",   // never extend past this (day before batch starts)
   seatsTotal: 100,
   seatsLeft: 100,                     // update as seats fill (e.g. 72)
   fee: 62500,                         // full course fee in rupees (before discount) -> 20% off = 50,000
@@ -733,8 +737,21 @@ var CFG = {
   if(CFG.instagramUrl){$("ig").href=CFG.instagramUrl;$("ig").classList.add("on")}
   if(CFG.youtubeUrl){$("yt").href=CFG.youtubeUrl;$("yt").classList.add("on");$("yt2").href=CFG.youtubeUrl;$("yt2").style.display="inline-block"}
 
-  var end=new Date(CFG.offerEnd).getTime();
+  function rollingEnd(){
+    var len=CFG.cycleDays*864e5,s=new Date(CFG.cycleStart).getTime();
+    var n=Math.max(0,Math.floor((Date.now()-s)/len))+1;
+    var e=s+n*len-6e4; /* 11:59 PM on the last day of the cycle */
+    if(CFG.hardStop){var hs=new Date(CFG.hardStop).getTime();if(e>hs)e=hs}
+    return e;
+  }
+  var end=CFG.autoRolling?rollingEnd():new Date(CFG.offerEnd).getTime();
+  function showEndDate(){
+    var t=new Date(end).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric",timeZone:"Asia/Kolkata"});
+    document.querySelectorAll('[data-f="offerTill"]').forEach(function(el){el.textContent=t});
+  }
+  if(CFG.autoRolling)showEndDate();
   function tick(){
+    if(CFG.autoRolling&&Date.now()>end){var ne=rollingEnd();if(ne>end){end=ne;showEndDate()}}
     var d=end-Date.now(); if(isNaN(end)||d<0)d=0;
     var p=function(n){return String(n).padStart(2,"0")};
     $("cd-d").textContent=p(Math.floor(d/864e5));

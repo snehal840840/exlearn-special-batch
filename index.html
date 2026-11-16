@@ -966,6 +966,7 @@ var CFG = {
   fee: 62500,                         // full course fee in rupees (before discount) -> 20% off = 50,000
   discountPct: 20,
   whatsapp: "918087381742",           // number with country code, no + or spaces
+  leadApi: "/api/lead",               // backend that forwards leads to NeoDove CRM (see functions/api/lead.js)
   scriptUrl: "",                      // Google Apps Script web-app URL for the Google Sheet
   syllabusUrl: "Exlearn-Cloud-DevOps-AI-Syllabus.pdf", // syllabus PDF file (upload it next to index.html)
   whatsappUrl: "",                    // optional custom WhatsApp link; if empty, https://wa.me/<whatsapp number> is used
@@ -1117,6 +1118,12 @@ var CFG = {
   document.querySelectorAll('a[href="#enquire"]').forEach(function(a){
     a.addEventListener("click",function(e){e.preventDefault();openM()});
   });
+  function sendLead(d){
+    var o={};d.forEach(function(v,k){o[k]=v});
+    if(CFG.leadApi){return fetch(CFG.leadApi,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(o)}).then(function(r){if(!r.ok)throw new Error("lead")})}
+    if(CFG.scriptUrl){return fetch(CFG.scriptUrl,{method:"POST",mode:"no-cors",body:d})}
+    return Promise.reject(new Error("not connected"));
+  }
   var seen=false;try{seen=sessionStorage.getItem("exl_popup")==="1"}catch(e){}
   if(!seen){setTimeout(function(){if(!shown)openM()},9000)}
   pf.addEventListener("submit",function(e){
@@ -1126,13 +1133,13 @@ var CFG = {
     if(!pf.name.value.trim()||ph.length<10||!pf.mode.value){
       pmsg.style.color="#b91c1c";pmsg.textContent="Please enter your name, a valid phone number and preferred mode.";return;
     }
-    if(!CFG.scriptUrl){pmsg.style.color="#b91c1c";pmsg.textContent="Form is not connected yet (add scriptUrl).";return;}
+    if(!CFG.leadApi&&!CFG.scriptUrl){pmsg.style.color="#b91c1c";pmsg.textContent="Form is not connected yet (add scriptUrl).";return;}
     var d=new URLSearchParams();
     d.append("name",pf.name.value);d.append("phone",pf.phone.value);d.append("email","");
     d.append("experience","");d.append("course","Cloud & DevOps with AI – Special Batch");
     d.append("mode",pf.mode.value);d.append("message","");d.append("source","devops-special-batch-popup");
     psb.disabled=true;psb.textContent="Submitting…";
-    fetch(CFG.scriptUrl,{method:"POST",mode:"no-cors",body:d}).then(function(){
+    sendLead(d).then(function(){
       pmsg.style.color="#166534";pmsg.textContent="Thank you! Our team will call you shortly.";pf.reset();psb.textContent="Submitted ✔";
       setTimeout(closeM,2200);
     }).catch(function(){
@@ -1163,12 +1170,12 @@ var CFG = {
     if(!sf.name.value.trim()||!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(sf.email.value.trim())||ph.length<10){
       smsg.style.color="#f87171";smsg.textContent="Please enter your name, a valid email and a valid phone number.";return;
     }
-    if(CFG.scriptUrl){
+    if(CFG.leadApi||CFG.scriptUrl){
       var d=new URLSearchParams();
       d.append("name",sf.name.value);d.append("phone",sf.phone.value);d.append("email",sf.email.value);
       d.append("experience","");d.append("course","Syllabus download - Cloud & DevOps with AI");
       d.append("mode","");d.append("message","Requested the syllabus PDF");d.append("source","devops-special-batch-syllabus");
-      try{fetch(CFG.scriptUrl,{method:"POST",mode:"no-cors",body:d}).catch(function(){})}catch(e){}
+      try{sendLead(d).catch(function(){})}catch(e){}
     }
     try{sessionStorage.setItem("exl_syl","1")}catch(e){}
     ssb.textContent="Downloading… ✔";
@@ -1286,9 +1293,9 @@ var CFG = {
     d.append("name",f.name.value);d.append("phone",f.phone.value);d.append("email",f.email.value);
     d.append("experience",f.experience.value);d.append("course","Cloud & DevOps with AI – Special Batch");
     d.append("mode",f.mode.value);d.append("message",f.message.value);d.append("source","devops-special-batch-page");
-    if(!CFG.scriptUrl){msg.style.color="#b91c1c";msg.textContent="Form is not connected yet (add scriptUrl).";return;}
+    if(!CFG.leadApi&&!CFG.scriptUrl){msg.style.color="#b91c1c";msg.textContent="Form is not connected yet (add scriptUrl).";return;}
     sb.disabled=true;sb.textContent="Submitting…";
-    fetch(CFG.scriptUrl,{method:"POST",mode:"no-cors",body:d}).then(function(){
+    sendLead(d).then(function(){
       msg.style.color="#166534";msg.textContent="Thank you! Our team will contact you shortly.";f.reset();sb.textContent="Submitted ✔";
     }).catch(function(){
       msg.style.color="#b91c1c";msg.textContent="Something went wrong. Please WhatsApp us instead.";sb.disabled=false;sb.textContent="Claim My 20% Discount";
